@@ -8,7 +8,7 @@
         v-model="query"
         label="Press enter to search" 
         class="searchbar"
-        @input="gifs = []"
+        @input="newSearch()"
         @keyup.enter.native="getGifs(true)" />
     </div>
     <div>
@@ -30,17 +30,30 @@
           class="waterfallItem meet">
           <v-img 
             :src="`https://media.giphy.com/media/${gif.id}/200w_d.gif`" 
-            @click='gotoLink(gif)'/>
+            @click='gotoLink(gif)'>
+          </v-img>
         </WaterfallItem>
     </Waterfall>
     </div>
     <div 
       class="centered-text"
-      v-if="end">
+      v-if="this.gifs.length != 0">
       <h2 id="errorMsg">
-        {{ "Showing all " + this.gifs.length + " gifs for the keyword " + query}}
+        {{ end ? "Showing all " + this.gifs.length + " gifs for the keyword " + query : "Scroll to see more!"}}
       </h2>
     </div>
+    <v-btn
+      v-scroll="onScroll"
+      v-show="scrollButton"
+      fab
+      dark
+      fixed
+      bottom
+      right
+      color="primary"
+      @click="toTop">
+      <v-icon>mdi-chevron-up</v-icon>
+    </v-btn>
   </v-content>
 </template>
 
@@ -59,19 +72,15 @@ export default {
       query: '',
       gifs: [],
       limit: 50,
-      loading: false,
-      end: false
+      offset: 0,
+      end: false,
+      scrollButton: false
     }
   },
   computed: {
-    offset: function() {
-      return this.gifs.length;
-    },
     errorMsg: {
       get: function() {
-        if(this.loading) {
-          return ''
-        } else if(!this.query) {
+        if(!this.query) {
           return "Search for a cool gif above!"
         }
         return ''
@@ -83,11 +92,9 @@ export default {
   },
   methods: {
     getGifs(reset) {
-      this.loading = true;
-      let offset = reset ? 0 : this.gifs.length
-      axios.get(`https://api.giphy.com/v1/gifs/search?api_key=w38EcMTY1UOtAYqQF6JSZMaQjWiSWpzH&q=${this.query}&limit=${this.limit}&offset=${offset}&lang=en`)
+      axios.get(`https://api.giphy.com/v1/gifs/search?api_key=w38EcMTY1UOtAYqQF6JSZMaQjWiSWpzH&q=${this.query}&limit=${this.limit}&offset=${this.offset}&lang=en`)
         .then(res => {
-          this.loading = false
+          this.offset += this.limit
           if(res.data.data.length == 0) {
             if(this.gifs.length == 0) {
               this.errorMsg = "We found no gifs for that keyword :("
@@ -104,9 +111,12 @@ export default {
           }
         })
         .catch(err => {
-          this.loading = false
           this.errorMsg = err.data
         })
+    },
+    newSearch() {
+      this.gifs = [];
+      this.offset = 0
     },
     gotoLink(gif) {
       window.open(gif.url, "_blank")
@@ -120,9 +130,20 @@ export default {
         }
       };
     },
+    onScroll (e) {
+      if (typeof window === 'undefined') return
+      const top = window.pageYOffset ||   e.target.scrollTop || 0
+      this.scrollButton = top > 20
+    },
+    toTop () {
+      this.$vuetify.goTo(0)
+    }
   },
   mounted() {
     this.scroll()
+  },
+  created() {
+    document.title = "Giphy search"
   }
 }
 </script>
